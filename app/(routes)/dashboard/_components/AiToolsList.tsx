@@ -28,8 +28,8 @@ export const aiToolsList = [
         path : '/ai-tools/ai-roadmap-agent'
     },
     {
-        name : 'Cover Letter Generator',
-        desc : 'Write a cover letter',
+        name : 'AI Mock Interview Prep',
+        desc : 'Ace Your Next Interview',
         icon : '/cover.png',
         button : 'Create New',
         path : '/cover-letter-generator'

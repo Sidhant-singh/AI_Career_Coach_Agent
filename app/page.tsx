@@ -731,7 +731,7 @@ export default function LearnMateHomepage() {
               <span className="text-xl font-bold">LearnMate</span>
             </div>
             <div className="text-gray-400 text-center md:text-right">
-              <p>&copy; 2024 LearnMate. Empowering careers with AI.</p>
+              <p>&copy; 2025 LearnMate. Empowering careers with AI.</p>
             </div>
           </div>
         </div>
