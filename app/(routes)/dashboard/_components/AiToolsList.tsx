@@ -3,7 +3,7 @@ import React from 'react'
 import AiToolCard from './AiToolCard'
 
 
-const aiToolsList = [
+export const aiToolsList = [
     {
         name : 'AI Career Q&A Agent',
         desc : 'Chat With AI Agent',
@@ -17,7 +17,7 @@ const aiToolsList = [
         desc : 'Improve your resume',
         icon : '/resume.png',
         button : 'Analyze Now',
-        path : '/ai-resume-analyzer'
+        path : '/ai-tools/ai-resume-analyzer'
     },
 
     {
@@ -25,7 +25,7 @@ const aiToolsList = [
         desc : 'Build your roadmap',
         icon : '/roadmap.png',
         button : 'Generate New',
-        path : '/career-roadmap-generator'
+        path : '/ai-tools/ai-roadmap-agent'
     },
     {
         name : 'Cover Letter Generator',
@@ -35,7 +35,7 @@ const aiToolsList = [
         path : '/cover-letter-generator'
     }
 ]
-function AiTools(){
+function AiToolsList(){
     return (
         <div className='mt-7 p-5 bg-white border rounded-xl'>
             <h2 className='font-bold text-lg'>Available AI tools</h2>
@@ -50,4 +50,4 @@ function AiTools(){
     )
 }
 
-export default AiTools
+export default AiToolsList

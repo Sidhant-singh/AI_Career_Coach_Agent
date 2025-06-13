@@ -8,6 +8,7 @@ import { useUser } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import ResumeUploadDialog from './ResumeUploadDialog';
+import RoadmapGeneratorDialog from './RoadmapGeneratorDialog';
 
 
 interface TOOL{
@@ -27,19 +28,24 @@ function AiToolCard({tool}:AIToolProps ) {
     const { user } = useUser();
     const router = useRouter();
     const [openResumeUpload,setOpenResumeUpload] = useState(false);
-    
-    
+    const [openRoadmapDialog,setOpenRoadmapDialog] = useState(false);
+
     const onClickButton = async() =>{
         if(tool.name == 'AI Resume Analyzer'){
             // Open the Resume Upload Dialog
             setOpenResumeUpload(true);
             return;
         }
+        if(tool.path == '/ai-tools/ai-roadmap-agent'){
+            setOpenRoadmapDialog(true)
+            return;
+        }
 
         // create a new history entry for the user
         const result = await axios.post('/api/history', {
             recordId : id,
-            content : []
+            content : [],
+            aiAgentType : tool.path
         });
         console.log(result)
         router.push(tool.path+"/"+id); // Navigate to the tool's path with the unique ID
@@ -56,8 +62,11 @@ function AiToolCard({tool}:AIToolProps ) {
                     {tool.button}
                 </Button>
                 <ResumeUploadDialog openResumeUpload = {openResumeUpload}
-                setOpenResumeDialog = {setOpenResumeUpload} />
-
+                    setOpenResumeDialog = {setOpenResumeUpload} />
+                <RoadmapGeneratorDialog 
+                    openDialog = {openRoadmapDialog}
+                    setOpenDialog = {() => setOpenRoadmapDialog(false)}
+                />
             {/*  </Link> */}
         </div>
     )

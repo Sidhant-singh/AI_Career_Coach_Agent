@@ -286,7 +286,7 @@ function AiChat() {
                         placeholder='Type Here' 
                         value={userInput}
                         onChange={(event) => setUserInput(event.target.value)}
-                        onKeyPress={handleKeyPress}
+                        onKeyUp={handleKeyPress}
                         disabled={loading}
                     />
                     <Button 
