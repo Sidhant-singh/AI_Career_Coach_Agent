@@ -81,17 +81,48 @@ export async function POST(req: any) {
         
         let actualContent = "No response received";
         
-        // Based on your terminal output, the content is in output.output[0].content
-        if (runData?.output?.output?.[0]?.content) {
-            actualContent = runData.output.output[0].content;
-        } else if (runData?.output?.raw) {
-            try {
-                // Fallback: Parse the raw JSON string if direct access fails
-                const rawData = JSON.parse(runData.output.raw);
-                actualContent = rawData?.candidates?.[0]?.content?.parts?.[0]?.text || "No content found in response";
-            } catch (parseError) {
-                console.error("Error parsing raw response:", parseError);
-                actualContent = "Error parsing response";
+        // Handle different response formats from Inngest agent-kit
+        if (runData?.output) {
+            const output = runData.output;
+            
+            // Check if it's a direct string response
+            if (typeof output === 'string') {
+                actualContent = output;
+            }
+            // Check if it's an object with content property
+            else if (output.content) {
+                actualContent = output.content;
+            }
+            // Check if it's an array with content
+            else if (Array.isArray(output) && output[0]?.content) {
+                actualContent = output[0].content;
+            }
+            // Check for nested output structure
+            else if (output.output && Array.isArray(output.output) && output.output[0]?.content) {
+                actualContent = output.output[0].content;
+            }
+            // Check for raw response that needs parsing
+            else if (output.raw) {
+                try {
+                    const rawData = JSON.parse(output.raw);
+                    actualContent = rawData?.candidates?.[0]?.content?.parts?.[0]?.text || 
+                                  rawData?.content || 
+                                  rawData?.text || 
+                                  "No content found in response";
+                } catch (parseError) {
+                    console.error("Error parsing raw response:", parseError);
+                    actualContent = "Error parsing response";
+                }
+            }
+            // Fallback: try to extract any text content
+            else {
+                const jsonStr = JSON.stringify(output);
+                const textMatch = jsonStr.match(/"content":\s*"([^"]+)"/);
+                if (textMatch) {
+                    actualContent = textMatch[1];
+                } else {
+                    actualContent = "Unable to extract content from response";
+                }
             }
         }
         

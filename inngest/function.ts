@@ -229,7 +229,7 @@ GUIDELINES:
 export const AiCareerAgent = inngest.createFunction(
   { id: "AiCareerAgent" },
   { event: "AiCareerAgent" },
-  async ({ event }) => {
+  async ({ event, step }) => {
     const { userInput, conversationHistory } = event.data;
 
     // Build conversation context if history exists
@@ -250,9 +250,39 @@ export const AiCareerAgent = inngest.createFunction(
       fullPrompt = `Previous conversation context:\n${historyContext}\n\nCurrent user message: ${userInput}`;
     }
 
-    // DO NOT wrap agent.run inside step.run
-    const result = await AiCareerChatAgent.run(fullPrompt);
-    console.log("AiCareerAgent response:", result);
+    // Use step.run to properly handle the agent execution
+    const result = await step.run("generate-response", async () => {
+      const agentResult = await AiCareerChatAgent.run(fullPrompt);
+      console.log("AiCareerAgent response:", agentResult);
+      
+      // Extract the actual content from the agent result
+      let content = "No response received";
+      
+      if (typeof agentResult === 'string') {
+        content = agentResult;
+      } else if (agentResult && typeof agentResult === 'object') {
+        // Handle different possible response formats
+        if ('content' in agentResult && typeof agentResult.content === 'string') {
+          content = agentResult.content;
+        } else if ('output' in agentResult) {
+          const output = agentResult.output;
+          if (typeof output === 'string') {
+            content = output;
+          } else if (Array.isArray(output) && output.length > 0) {
+            const firstOutput = output[0];
+            if (firstOutput && typeof firstOutput === 'object' && 'content' in firstOutput) {
+              content = firstOutput.content as string;
+            }
+          }
+        }
+      }
+      
+      return {
+        content: content,
+        role: "assistant",
+        type: "text"
+      };
+    });
 
     return result;
   }
