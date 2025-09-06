@@ -3,10 +3,10 @@ import axios from "axios";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { runId: string } }
+  context: { params: Promise<{ runId: string }> }
 ) {
   try {
-    const { runId } = params;
+    const { runId } = await context.params;
     
     if (!runId) {
       return NextResponse.json({ error: "Missing runId" }, { status: 400 });

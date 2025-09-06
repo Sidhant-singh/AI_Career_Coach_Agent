@@ -19,5 +19,5 @@ export const { GET, POST, PUT } = handler;
 
 // Add a custom endpoint to check run status
 export async function OPTIONS(request: NextRequest) {
-  return handler.OPTIONS(request);
+  return new NextResponse(null, { status: 200 });
 }
