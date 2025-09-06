@@ -190,3 +190,4 @@ Once deployed, you can add this to your resume:
 - **Deployment**: https://your-app-name.vercel.app
 
 Your AI Career Coach is now live and ready to impress potential employers! 🚀
+
