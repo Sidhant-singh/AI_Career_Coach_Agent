@@ -1,4 +1,3 @@
-
 import { inngest } from "@/inngest/client";
 import axios from "axios";
 import { NextResponse } from "next/server";
@@ -6,17 +5,30 @@ import { getRuns } from "@/lib/inngest-utils";
 
 export async function POST(req: any) {
     try {
-        const { userInput, conversationHistory } = await req.json();
+        const { userInput, domain, interviewId, userEmail, isFeedback } = await req.json();
 
-        if (!userInput) {
-            return NextResponse.json({ error: "Missing user input" }, { status: 400 });
+        if (!domain) {
+            return NextResponse.json({ error: "Missing domain/role" }, { status: 400 });
         }
 
+        if (!interviewId) {
+            return NextResponse.json({ error: "Missing interview ID" }, { status: 400 });
+        }
+
+        if (!userEmail) {
+            return NextResponse.json({ error: "Missing user email" }, { status: 400 });
+        }
+
+        console.log("🚀 Starting AI Interview Agent with:", { domain, interviewId, isFeedback });
+
         const resultId = await inngest.send({
-            name: 'AiCareerAgent',
+            name: 'AiInterviewAgent',
             data: {
-                userInput: userInput,
-                conversationHistory: conversationHistory || [],
+                interviewId: interviewId,
+                userInput: userInput || "",
+                domain: domain,
+                userEmail: userEmail,
+                isFeedback: isFeedback || false,
             },
         });
 
@@ -30,7 +42,7 @@ export async function POST(req: any) {
 
         let runStatus;
         let attempts = 0;
-        const maxAttempts = 60; // 30 seconds timeout with 500ms intervals
+        const maxAttempts = 120; // 60 seconds timeout with 500ms intervals
 
         while (attempts < maxAttempts) {
             try {
@@ -76,34 +88,39 @@ export async function POST(req: any) {
         }
 
         // Extract the actual content from the response
-        const runData = runStatus.data?.[0]; // Access nested data structure
+        const runData = runStatus.data?.[0];
         console.log("Full run data:", JSON.stringify(runData, null, 2));
         
-        let actualContent = "No response received";
+        let interviewData = null;
         
-        // Based on your terminal output, the content is in output.output[0].content
-        if (runData?.output?.output?.[0]?.content) {
-            actualContent = runData.output.output[0].content;
-        } else if (runData?.output?.raw) {
+        // Extract interview data from the response
+        if (runData?.output?.interviewData) {
+            interviewData = runData.output.interviewData;
+        } else if (runData?.output) {
+            // Fallback: try to parse the output directly
             try {
-                // Fallback: Parse the raw JSON string if direct access fails
-                const rawData = JSON.parse(runData.output.raw);
-                actualContent = rawData?.candidates?.[0]?.content?.parts?.[0]?.text || "No content found in response";
+                interviewData = runData.output;
             } catch (parseError) {
-                console.error("Error parsing raw response:", parseError);
-                actualContent = "Error parsing response";
+                console.error("Error parsing interview output:", parseError);
+                interviewData = {
+                    interview_phase: "error",
+                    current_question: "Sorry, there was an error processing your request.",
+                    question_number: 1,
+                    total_questions: 8,
+                    domain: domain,
+                    feedback: null
+                };
             }
         }
         
-        // Format response to match frontend expectations
-        const formattedResponse = {
-            content: actualContent,
-            role: "assistant",
-            type: "text"
-        };
+        if (!interviewData) {
+            return NextResponse.json({ 
+                error: "No interview data received" 
+            }, { status: 500 });
+        }
 
-        console.log("Formatted response:", formattedResponse);
-        return NextResponse.json(formattedResponse);
+        console.log("Formatted interview response:", interviewData);
+        return NextResponse.json(interviewData);
         
     } catch (error) {
         console.error("API Error:", error);

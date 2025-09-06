@@ -17,8 +17,39 @@ export const helloWorld = inngest.createFunction(
 export const AiCareerChatAgent = createAgent({
     name : 'ai-career-chat-agent',
     description : 'An AI agent that helps you with career-related questions and tasks.',
-    system : `You are a helpful, professional AI career coach Agent. Your role is to guide users with skill development, career transitions, and industry trends.Always respond with clarity, encouragement, and and actionable advice.
-    If the user asks anything unrelated to career (e.g. topics like health, relationships, coding etc.), politely redirect them back to career-related topics.`,
+    system : `You are a friendly, professional AI career coach having a natural conversation with someone seeking career guidance. Your role is to:
+
+CONVERSATION STYLE:
+- Be conversational, warm, and engaging like talking to a friend who's also a career expert
+- Ask follow-up questions to understand their situation better
+- Build on previous parts of the conversation naturally
+- Show genuine interest in their career journey
+- Use "you" and "your" to make it personal
+- Be encouraging and supportive while giving honest advice
+
+CAREER GUIDANCE AREAS:
+- Skill development and learning paths
+- Career transitions and changes
+- Industry trends and insights
+- Job search strategies
+- Interview preparation
+- Professional networking
+- Salary negotiations
+- Work-life balance
+- Leadership development
+- Entrepreneurship
+
+CONVERSATION FLOW:
+- If they mention a specific role/industry, ask about their experience level and goals
+- If they're considering a career change, explore their current situation and motivations
+- If they're job searching, understand their target roles and challenges
+- If they're looking to upskill, assess their current skills and learning preferences
+- Always provide actionable next steps and resources when relevant
+
+REDIRECTION:
+- If they ask about non-career topics (health, relationships, general coding tutorials), politely redirect: "I'd love to help with that, but I'm specialized in career guidance. Is there anything career-related I can help you with instead?"
+
+Remember: This is a conversation, not just Q&A. Build rapport, ask thoughtful questions, and create a supportive coaching relationship.`,
     model : gemini({
       model : "gemini-2.0-flash",
       apiKey : process.env.GEMINI_API_KEY,
@@ -101,6 +132,52 @@ Also include:
   }),
 });
 
+export const AiInterviewAgent = createAgent({
+  name: 'AiInterviewAgent',
+  description: 'An AI agent that conducts dynamic mock interviews with realistic voice responses and real-time judging.',
+  system: `You are an expert AI Interview Coach conducting realistic mock interviews. You must respond in JSON format only.
+
+INTERVIEW TYPES:
+- Technical: Focus on coding, algorithms, system design, problem-solving
+- Culture Fit: Focus on behavioral questions, teamwork, leadership, company culture
+
+RESPONSE FORMAT (JSON only):
+{
+  "interview_phase": "question" | "feedback",
+  "current_question": "The interview question to ask",
+  "question_number": 1-8,
+  "total_questions": 8,
+  "domain": "Role/domain",
+  "interview_type": "technical" | "culture-fit",
+  "ai_response": "Dynamic AI interviewer response for voice synthesis (natural, conversational)",
+  "real_time_feedback": {
+    "score": 0-100,
+    "comment": "Brief real-time assessment",
+    "suggestion": "Quick improvement tip"
+  },
+  "feedback": {
+    "overall_score": 0-100,
+    "strengths": ["strength1", "strength2"],
+    "areas_for_improvement": ["area1", "area2"],
+    "detailed_analysis": "Comprehensive analysis",
+    "recommendations": ["rec1", "rec2"],
+    "next_steps": "Action items"
+  }
+}
+
+GUIDELINES:
+- Be conversational and realistic in AI responses
+- Provide real-time feedback during questions
+- Ask follow-up questions based on responses
+- Judge responses like a real interviewer
+- Keep questions relevant to the domain and interview type
+- Make the experience feel authentic and challenging`,
+  model: gemini({
+    model: "gemini-2.0-flash",
+    apiKey: process.env.GEMINI_API_KEY,
+  }),
+});
+
 
 // export const AIRoadmapGeneratorAgent = createAgent({
 //   name : 'AIRoadmapGeneratorAgent',
@@ -153,13 +230,169 @@ export const AiCareerAgent = inngest.createFunction(
   { id: "AiCareerAgent" },
   { event: "AiCareerAgent" },
   async ({ event }) => {
-    const { userInput } = event.data;
+    const { userInput, conversationHistory } = event.data;
+
+    // Build conversation context if history exists
+    let fullPrompt = userInput;
+    if (conversationHistory && conversationHistory.length > 0) {
+      // Format conversation history for context
+      const historyContext = conversationHistory
+        .slice(-10) // Keep last 10 exchanges to avoid token limits
+        .map((msg: any) => {
+          if (msg.role === 'user') {
+            return `User: ${msg.content}`;
+          } else {
+            return `AI Career Coach: ${msg.content}`;
+          }
+        })
+        .join('\n\n');
+      
+      fullPrompt = `Previous conversation context:\n${historyContext}\n\nCurrent user message: ${userInput}`;
+    }
 
     // DO NOT wrap agent.run inside step.run
-    const result = await AiCareerChatAgent.run(userInput);
-    //console.log("AiCareerAgent response:", result);
+    const result = await AiCareerChatAgent.run(fullPrompt);
+    console.log("AiCareerAgent response:", result);
 
     return result;
+  }
+);
+
+export const AiInterviewAgentFunction = inngest.createFunction(
+  { id: "AiInterviewAgent" },
+  { event: "AiInterviewAgent" },
+  async ({ event, step }) => {
+    const { interviewId, userInput, domain, userEmail, interviewType, isFeedback } = event.data;
+
+    console.log("🤖 AI Interview Agent started with:", { interviewId, domain, interviewType, isFeedback });
+
+    const interviewResult = await step.run("conduct-interview", async () => {
+      let prompt = "";
+      
+      if (isFeedback) {
+        // Provide comprehensive feedback on the candidate's responses
+        prompt = `You are conducting a ${interviewType} interview for a ${domain} position.
+
+CANDIDATE'S RESPONSES:
+${userInput}
+
+INTERVIEW TYPE: ${interviewType}
+- Technical: Focus on technical skills, problem-solving, coding ability, system design
+- Culture Fit: Focus on behavioral aspects, teamwork, leadership, company culture fit
+
+Provide comprehensive feedback including:
+1. Overall performance score (0-100)
+2. Strengths demonstrated
+3. Areas for improvement
+4. Detailed analysis of their responses
+5. Specific recommendations
+6. Next steps for improvement
+
+Be thorough but constructive in your assessment.`;
+      } else {
+        // Generate dynamic interview questions and responses
+        const questionType = interviewType === 'technical' ? 'technical' : 'behavioral/culture-fit';
+        
+        if (userInput) {
+          // Follow-up based on previous response
+          prompt = `You are conducting a ${interviewType} interview for a ${domain} position.
+
+PREVIOUS CANDIDATE RESPONSE: "${userInput}"
+
+INTERVIEW TYPE: ${interviewType}
+- Technical: Ask coding challenges, system design, algorithms, technical problem-solving
+- Culture Fit: Ask behavioral questions about teamwork, leadership, conflict resolution, company values
+
+Based on their response, provide:
+1. A natural, conversational AI interviewer response (like a real interviewer would speak)
+2. A follow-up question that builds on their answer
+3. Real-time feedback on their response (score, comment, suggestion)
+
+Be engaging, realistic, and challenging. Ask probing questions that test their knowledge and experience.`;
+        } else {
+          // First question
+          prompt = `You are starting a ${interviewType} interview for a ${domain} position.
+
+INTERVIEW TYPE: ${interviewType}
+- Technical: Start with a coding challenge, system design question, or technical problem
+- Culture Fit: Start with a behavioral question about their background, experience, or motivation
+
+Provide:
+1. A warm, professional opening from the AI interviewer
+2. The first interview question
+3. A natural AI response for voice synthesis
+4. Real-time feedback (can be neutral for first question)
+
+Make it feel like a real interview with a professional interviewer.`;
+        }
+      }
+
+      const result = await AiInterviewAgent.run(prompt);
+      console.log("✅ Interview agent response received");
+      
+      // Parse the response
+      const message = result.output[0];
+      const rawContent = ('content' in message ? message.content : 'text' in message ? message.text : '') as string;
+      const cleanedContent = rawContent.replace('```json', '').replace('```', '');
+      
+      try {
+        const parsedResponse = JSON.parse(cleanedContent);
+        // Ensure interview_type is included
+        parsedResponse.interview_type = interviewType;
+        return parsedResponse;
+      } catch (parseError) {
+        console.error("Error parsing interview response:", parseError);
+        // Fallback response
+        const fallbackQuestion = interviewType === 'technical' 
+          ? "Can you walk me through how you would approach solving a complex technical problem?"
+          : "Tell me about a time when you had to work with a difficult team member. How did you handle it?";
+        
+        return {
+          interview_phase: isFeedback ? "feedback" : "question",
+          current_question: isFeedback ? "" : fallbackQuestion,
+          question_number: 1,
+          total_questions: 8,
+          domain: domain,
+          interview_type: interviewType,
+          ai_response: isFeedback ? "" : `Great! Let's start with this question. ${fallbackQuestion}`,
+          real_time_feedback: isFeedback ? null : {
+            score: 0,
+            comment: "Let's see how you approach this question",
+            suggestion: "Take your time and think through your response"
+          },
+          feedback: isFeedback ? {
+            overall_score: 75,
+            strengths: ["Good communication", "Relevant experience"],
+            areas_for_improvement: ["Could provide more specific examples"],
+            detailed_analysis: "The response shows good understanding but could be more detailed.",
+            recommendations: ["Provide specific examples", "Quantify achievements"],
+            next_steps: "Practice with more specific examples and metrics."
+          } : null
+        };
+      }
+    });
+
+    // Save to database
+    const saveToDb = await step.run('SaveToDb', async () => {
+      const result = await db.insert(HistoryTable).values({
+        recordId: interviewId,
+        content: interviewResult,
+        aiAgentType: '/ai-tools/ai-interview-agent',
+        createdAt: (new Date()).toString(),
+        userEmail: userEmail,
+        metaData: domain
+      });
+      
+      console.log("✅ Interview data saved to database");
+      return interviewResult;
+    });
+
+    return {
+      success: true,
+      interviewData: saveToDb,
+      interviewId: interviewId,
+      timestamp: new Date().toISOString()
+    };
   }
 );
 
@@ -223,244 +456,6 @@ export const AiResumeAgent = inngest.createFunction(
   }
 );
 
-
-
-// import { google } from "@ai-sdk/google";
-// import { generateText } from "ai";
-
-// export const AIRoadmapAgent = inngest.createFunction(
-//   { 
-//     id: 'AiRoadMapAgent',
-//     name: 'AI Roadmap Generator',
-//   },
-//   { event: 'AiRoadMapAgent' },
-//   async ({ event, step }) => {
-//     console.log("🚀 AIRoadmapAgent started with event:", JSON.stringify(event, null, 2));
-    
-//     try {
-//       const { roadmapId, userInput, userEmail } = event.data;
-      
-//       console.log("📝 Extracted data:", { roadmapId, userInput, userEmail });
-
-//       if (!userInput) {
-//         console.error("❌ Missing userInput in event data");
-//         return {
-//           success: false,
-//           error: "Missing userInput",
-//           message: "User input is required to generate roadmap",
-//           roadmapId: roadmapId
-//         };
-//       }
-
-//       // Check if Google API key is available
-//       if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY && !process.env.GEMINI_API_KEY) {
-//         console.error("❌ Missing Google API key");
-//         return {
-//           success: false,
-//           error: "Missing API key",
-//           message: "Google Generative AI API key is not configured",
-//           roadmapId: roadmapId
-//         };
-//       }
-
-//       const roadmapResult = await step.run("generate-roadmap", async () => {
-//         console.log("🤖 Generating roadmap for input:", userInput);
-        
-//         const systemPrompt = `You are an expert learning roadmap generator. Generate a comprehensive React flow tree-structured learning roadmap based on the user's input position/skills.
-
-// IMPORTANT: Always respond with ONLY valid JSON - no markdown formatting, no code blocks, no extra text.
-
-// The roadmap should have:
-// - Vertical tree structure with meaningful x/y positions to form a logical flow
-// - Structure similar to roadmap.sh layout
-// - Steps ordered from fundamentals to advanced
-// - Include branching for different specializations (if applicable)
-// - Each node must have a title, short description, and learning resource link
-// - Use unique IDs for all nodes and edges
-// - Make node positions spacious (minimum 200px apart vertically, 300px horizontally for branches)
-
-// Response format (ONLY JSON, no markdown):
-// {
-//   "roadmapTitle": "Complete Learning Path Title",
-//   "description": "A comprehensive 3-5 line description explaining what this roadmap covers, the target audience, and expected outcomes upon completion.",
-//   "duration": "Estimated completion time (e.g., 6-12 months)",
-//   "initialNodes": [
-//     {
-//       "id": "1",
-//       "type": "turbo",
-//       "position": { "x": 400, "y": 0 },
-//       "data": {
-//         "title": "Fundamentals",
-//         "description": "Start with the basic concepts and foundational knowledge required for this field.",
-//         "link": "https://example.com/fundamentals"
-//       }
-//     },
-//     {
-//       "id": "2", 
-//       "type": "turbo",
-//       "position": { "x": 400, "y": 200 },
-//       "data": {
-//         "title": "Next Step",
-//         "description": "Build upon fundamentals with more specific skills and practical applications.",
-//         "link": "https://example.com/next-step"
-//       }
-//     }
-//   ],
-//   "initialEdges": [
-//     {
-//       "id": "e1-2",
-//       "source": "1",
-//       "target": "2"
-//     }
-//   ]
-// }
-
-// Guidelines:
-// - Include 8-15 nodes for comprehensive coverage
-// - Position nodes with adequate spacing (200px+ vertically)
-// - Include realistic learning resource links (documentation, courses, etc.)
-// - Create logical dependencies with edges
-// - For specializations, branch horizontally with different x coordinates
-// - Always include practical projects/hands-on nodes
-// - End with advanced/specialized topics
-
-// Remember: Return ONLY the JSON object, no other text or formatting.`;
-
-//         try {
-//           const result = await generateText({
-//             model: google("gemini-2.0-flash-exp"),
-//             system: systemPrompt,
-//             prompt: `Generate a learning roadmap for: ${userInput}`,
-//             maxTokens: 4000,
-//           });
-
-//           console.log("✅ Generated text length:", result.text.length);
-//           console.log("📄 Generated text preview:", result.text.substring(0, 200) + "...");
-          
-//           // Clean the response - remove any markdown formatting
-//           let cleanedText = result.text.trim();
-          
-//           // Remove markdown code blocks if present
-//           cleanedText = cleanedText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-          
-//           // Find JSON object in the response
-//           const jsonStart = cleanedText.indexOf('{');
-//           const jsonEnd = cleanedText.lastIndexOf('}') + 1;
-          
-//           if (jsonStart === -1 || jsonEnd === 0) {
-//             throw new Error("No JSON object found in response");
-//           }
-          
-//           const jsonString = cleanedText.substring(jsonStart, jsonEnd);
-          
-//           try {
-//             const parsedRoadmap = JSON.parse(jsonString);
-//             console.log("✅ Successfully parsed roadmap JSON");
-//             console.log("📊 Roadmap nodes count:", parsedRoadmap.initialNodes?.length || 0);
-//             return parsedRoadmap;
-//           } catch (parseError) {
-//             console.error("❌ Failed to parse JSON:", parseError);
-//             console.error("🔍 Cleaned text:", cleanedText);
-            
-//             // Return a fallback roadmap structure
-//             const fallbackRoadmap = {
-//               roadmapTitle: `${userInput} Learning Path`,
-//               description: `A comprehensive learning roadmap for ${userInput}. This roadmap covers essential skills, tools, and concepts needed to excel in this field. Designed for beginners to advanced learners with practical hands-on experience.`,
-//               duration: "6-12 months",
-//               initialNodes: [
-//                 {
-//                   id: "1",
-//                   type: "turbo",
-//                   position: { x: 400, y: 0 },
-//                   data: {
-//                     title: "Getting Started",
-//                     description: `Begin your ${userInput} journey with foundational concepts and basic understanding.`,
-//                     link: "https://developer.mozilla.org/"
-//                   }
-//                 },
-//                 {
-//                   id: "2",
-//                   type: "turbo",
-//                   position: { x: 400, y: 200 },
-//                   data: {
-//                     title: "Core Concepts",
-//                     description: `Learn the fundamental principles and core concepts of ${userInput}.`,
-//                     link: "https://docs.github.com/"
-//                   }
-//                 },
-//                 {
-//                   id: "3",
-//                   type: "turbo",
-//                   position: { x: 400, y: 400 },
-//                   data: {
-//                     title: "Practical Application",
-//                     description: `Apply your knowledge through hands-on projects and real-world scenarios.`,
-//                     link: "https://github.com/"
-//                   }
-//                 }
-//               ],
-//               initialEdges: [
-//                 {
-//                   id: "e1-2",
-//                   source: "1",
-//                   target: "2"
-//                 },
-//                 {
-//                   id: "e2-3",
-//                   source: "2",
-//                   target: "3"
-//                 }
-//               ]
-//             };
-            
-//             console.log("🔄 Using fallback roadmap");
-//             return fallbackRoadmap;
-//           }
-//         } catch (aiError) {
-//           console.error("❌ AI generation error:", aiError);
-//           throw new Error(`AI generation failed: ${aiError instanceof Error ? aiError.message : 'Unknown error'}`);
-//         }
-//       });
-      
-//       console.log("✅ Roadmap generation completed successfully");
-      
-//       // Optional: Save to database
-//     //   if (roadmapId && userEmail) {
-//     //     await step.run("save-to-db", async () => {
-//     //       console.log("💾 Saving roadmap to database:", { roadmapId, userEmail });
-//     //       // Add your database save logic here if needed
-//     //       return true;
-//     //     });
-//     //   }
-      
-//     //   // Return the roadmap in the expected format
-//     //   const response = {
-//     //     success: true,
-//     //     roadmap: roadmapResult,
-//     //     roadmapId: roadmapId,
-//     //     timestamp: new Date().toISOString()
-//     //   };
-      
-//     //   console.log("🎉 Function completed successfully");
-//     //   return response;
-      
-//     // } catch (error) {
-//     //   console.error("💥 Critical error in AIRoadmapAgent:", error);
-      
-//     //   // Return error response instead of throwing
-//     //   const errorResponse = {
-//     //     success: false,
-//     //     error: "Failed to generate roadmap",
-//     //     message: error instanceof Error ? error.message : "Unknown error occurred",
-//     //     roadmapId: event.data?.roadmapId || null,
-//     //     timestamp: new Date().toISOString()
-//     //   };
-      
-//     //   console.log("❌ Returning error response:", errorResponse);
-//     //   return errorResponse;
-      
-//   }
-// });
 
 import { google } from "@ai-sdk/google";
 import { generateText } from "ai";
@@ -597,3 +592,6 @@ Remember: Return ONLY the JSON object, no other text or formatting.`;
 
   }
 );
+// running the inngest server -> npx inngest-cli@latest dev
+// running the node server -> npm run dev
+// running the database server -> npx drizzle-kit studio

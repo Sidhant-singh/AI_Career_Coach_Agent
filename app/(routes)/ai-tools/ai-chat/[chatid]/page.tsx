@@ -163,6 +163,7 @@ function AiChat() {
         try {
             const result = await axios.post('/api/ai-career-chat-agent', {
                 userInput: currentInput,
+                conversationHistory: messageList, // Pass the current conversation history
             });
             
             console.log("API Response:", result.data);
@@ -240,8 +241,8 @@ function AiChat() {
         <div className='px-10 md:px-24 lg:px-36 xl:px-48 h-[75vh] overflow-auto'>
             <div className='flex items-center justify-between gap-8'>
                 <div>
-                    <h2 className='font-bold text-lg'>AI Career QA Chat</h2>
-                    <p>Smarter career decisions start here — get tailored advice, real-time market insights </p>
+                    <h2 className='font-bold text-lg'>AI Career Coach Chat</h2>
+                    <p>Have a natural conversation with your AI career coach — get personalized guidance, ask follow-up questions, and build your career strategy together</p>
                 </div>
                 <Button onClick={onNewChat}>+ New Chat</Button>
             </div>
@@ -283,7 +284,7 @@ function AiChat() {
 
                 <div className='flex justify-between items-center gap-6 absolute bottom-5 w-[50%]'>
                     <Input 
-                        placeholder='Type Here' 
+                        placeholder='Ask me anything about your career...' 
                         value={userInput}
                         onChange={(event) => setUserInput(event.target.value)}
                         onKeyUp={handleKeyPress}

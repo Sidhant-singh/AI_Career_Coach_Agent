@@ -65,6 +65,7 @@ import { WebPDFLoader } from "@langchain/community/document_loaders/web/pdf";
 import { inngest } from "@/inngest/client";
 import axios from "axios";
 import { currentUser } from "@clerk/nextjs/server";
+import { getRuns } from "@/lib/inngest-utils";
 
 export async function POST(request: NextRequest) {
     try {
@@ -160,22 +161,5 @@ export async function POST(request: NextRequest) {
             error: "Internal server error", 
             details: error instanceof Error ? error.message : "Unknown error" 
         }, { status: 500 });
-    }
-}
-
-export async function getRuns(runId: string) {
-    try {
-        const result = await axios.get(`${process.env.INNGEST_SERVER_HOST}/v1/events/${runId}/runs`, {
-            headers: {
-                'Authorization': `Bearer ${process.env.INNGEST_SIGNING_KEY}`,
-                'Content-Type': 'application/json',
-            },
-            timeout: 10000, // 10 second timeout
-        });
-
-        return result.data;
-    } catch (error) {
-        console.error("Error fetching run status:", error);
-        throw error;
     }
 }

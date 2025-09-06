@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import ResumeUploadDialog from './ResumeUploadDialog';
 import RoadmapGeneratorDialog from './RoadmapGeneratorDialog';
+import InterviewDialog from './InterviewDialog';
 
 
 interface TOOL{
@@ -29,6 +30,7 @@ function AiToolCard({tool}:AIToolProps ) {
     const router = useRouter();
     const [openResumeUpload,setOpenResumeUpload] = useState(false);
     const [openRoadmapDialog,setOpenRoadmapDialog] = useState(false);
+    const [openInterviewDialog,setOpenInterviewDialog] = useState(false);
 
     const onClickButton = async() =>{
         if(tool.name == 'AI Resume Analyzer'){
@@ -38,6 +40,10 @@ function AiToolCard({tool}:AIToolProps ) {
         }
         if(tool.path == '/ai-tools/ai-roadmap-agent'){
             setOpenRoadmapDialog(true)
+            return;
+        }
+        if(tool.path == '/ai-tools/ai-interview-agent'){
+            setOpenInterviewDialog(true)
             return;
         }
 
@@ -66,6 +72,10 @@ function AiToolCard({tool}:AIToolProps ) {
                 <RoadmapGeneratorDialog 
                     openDialog = {openRoadmapDialog}
                     setOpenDialog = {() => setOpenRoadmapDialog(false)}
+                />
+                <InterviewDialog 
+                    openDialog = {openInterviewDialog}
+                    setOpenDialog = {() => setOpenInterviewDialog(false)}
                 />
             {/*  </Link> */}
         </div>

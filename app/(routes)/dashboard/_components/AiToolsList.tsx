@@ -31,8 +31,8 @@ export const aiToolsList = [
         name : 'AI Mock Interview Prep',
         desc : 'Ace Your Next Interview',
         icon : '/cover.png',
-        button : 'Create New',
-        path : '/cover-letter-generator'
+        button : 'Start Interview',
+        path : '/ai-tools/ai-interview-agent'
     }
 ]
 function AiToolsList(){
